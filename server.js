@@ -1,11 +1,15 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const db = require("./config/db");
+const path = require("path")
 const { redisClient } = require("./config/redis");
 
-dotenv.config();
+dotenv.config()
 
-const app = express();
+// Routes
+const viewRoutes = require("./routes/views")
+
+const app = express()
 
 db.connect((err) => {
     if (err) {
@@ -15,31 +19,13 @@ db.connect((err) => {
     console.log("Connected to MySQL Database...");
 });
 
-app.get("/", (req, res) => {
-    res.send("<h1>Hello from express</h1>");
-});
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"))
+app.use(express.static(path.join(__dirname, "public")))
+app.use(express.json())
+app.use(express.urlencoded({extended: true}))
 
-// Example route that uses Redis
-app.get("/cache-example", async (req, res) => {
-    try {
-        const cacheKey = "someKey";
-        let data = await redisClient.get(cacheKey);
-        if (data) {
-            return res.json({ source: 'cache', data: JSON.parse(data) });
-        }
-        
-        // Placeholder for data fetching logic from a database or another source
-        data = { message: "Hello from database or other data source" };
-        
-        // Save fetched data in Redis cache
-        await redisClient.set(cacheKey, JSON.stringify(data), { EX: 3600 }); // Expires in 1 hour
-
-        return res.json({ source: 'db', data });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
+app.use("/", viewRoutes)
 
 const PORT = process.env.PORT || 5000;
 
